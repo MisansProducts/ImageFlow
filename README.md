@@ -1,14 +1,48 @@
-# Picture Sorter
+# ImageFlow
 
-I created this program because I wanted to automate renaming photos. I like to keep things organized and consistent. When there are thousands of pictures comprised of multiple file image formats and arbitrary names in one folder, this program comes in handy.
+ImageFlow is a Python program that automates the process of renaming and converting image files to PNG format. It helps organize large collections of images with consistent naming conventions.
 
-To use this program, make sure there is a folder named `temp` in the same directory as `main.py`. If not, running `main.py` will generate that folder anyway. Place unsorted pictures in the `temp` folder. Run `main.py` and it will ask for a file name and starting number. It will then mass rename all the photos in `temp` to `[FILE NAME] #` and change their file extensions to a PNG format. Finally, copy or move the sorted pictures wherever you want.
+## Features
 
-**DO NOT ATTEMPT TO SORT NON-IMAGE FILES; IT WILL CORRUPT THEM.**
+- Renames images sequentially with a custom prefix
+- Converts images to PNG format
+- Handles natural sorting of numbers (1, 2, 3... instead of 1, 10, 11...)
+- Creates necessary directories automatically
+- Simple command-line interface
 
-This program is especially useful if you have many images of the same topic. For example, if you have pictures of your friend named Alex, you can create a folder for Alex and use this program to sort Alex's photos. It will then appear nicely as "Alex 1", "Alex 2", Alex 3", and so on.
+## Requirements
 
-Make sure [Python](https://www.python.org/downloads/ "Download Python from www.python.org") is installed on your device before opening this file.
+- Python 3.11.5 or later
+- Pillow 10.4.0 or later
+
+## Installation
+
+1. Install Python from [python.org](https://www.python.org/downloads/)
+2. Install Pillow using pip:
+   ```bash
+   pip install Pillow
+   ```
+
+## Usage
+
+1. Place your unsorted images in the `Input` folder (will be created automatically if it doesn't exist)
+2. Run `main.py`
+3. Enter your desired file name prefix when prompted
+4. Enter the starting number for the sequence
+5. The program will process all images and save them as PNGs in the `Output` folder
+
+Example:
+```
+File name: Vacation
+Starting number: 1
+```
+This will create files named "Vacation 1.png", "Vacation 2.png", etc.
+
+## Important Notes
+
+- Only image files (.png, .jpg, .jpeg) should be placed in the Input folder
+- Non-image files may become corrupted if processed
+- The program is particularly useful for organizing photos of the same subject or event
 
 ## Credits
 

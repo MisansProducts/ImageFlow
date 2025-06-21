@@ -1,0 +1,6 @@
+# Generated directories
+Input/
+Output/
+
+# Personal run script (because I use Miniconda to install Pillow)
+run.bat

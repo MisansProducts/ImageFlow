@@ -1,49 +1,57 @@
-#Made by Alex
-
 import os
-import time
+from pathlib import Path
 import re
 
-#Main Function
+from PIL import Image
+
 def main():
-    #Sort Function
-    def natural_sort_key(s): #Sorting algorithm for numbers (1 to 1, 2 to 2, etc...instead of 1 to 1, 10 to 2, etc)
-        return [int(c) if c.isdigit() else c for c in pattern.split(s)] #Parsers any integers it finds in the string then splits it by the numbers
-
-    #Variables
-    path = os.path.join(os.path.dirname(__file__), "temp\\") #File path
-    pattern = re.compile('([0-9]+)') #Recognizes base 10 digits
-
-    #Path error
-    if os.path.isdir(path) == False:
-        print(f"Cannot find {path}", "Creating a folder named \"temp\". Move unsorted pictures in here.\n", sep = "\n")
-        os.mkdir(path) #Creates "temp" folder in the same directory
+    # Sorting algorithm for numbers (1 to 1, 2 to 2, etc... instead of 1 to 1, 10 to 2, etc)
+    def natural_sort_key(s):
+        pattern = re.compile('([0-9]+)')
+        return [int(c) if c.isdigit() else c for c in pattern.split(s)]
     
-    #Name Input
+    # Creates input directory
+    input_path = Path('Input')
+    if not input_path.exists():
+        input_path.mkdir(parents=True)
+        return print(f"Creating a folder named '{input_path.name}'.\nPlease move unsorted images into the '{input_path.name}' directory.")
+    
+    # Creates output directory
+    output_path = Path('Output')
+    if not output_path.exists():
+        output_path.mkdir(parents=True)
+        print(f"Creating a folder named '{output_path.name}'.")
+    
+    # Checks if there are any images in the input directory
+    extensions = {'.png', '.jpg', '.jpeg'}
+    if not any(file.suffix.lower() in extensions for file in input_path.iterdir() if file.is_file()):
+        return print(f"There are no images to sort!\nPlease move unsorted images into the '{input_path.name}' directory.")
+    
+    # Gets a list of all the unsorted images
+    unsorted_images = [file.name for file in input_path.iterdir() if file.is_file() and file.suffix.lower() in extensions]
+
+    # Name input
     my_name = input("File name: ") + " "
 
-    #Number Input
+    # Number input
     try:
         i = int(input("Starting number: "))
     except:
         i = 1
-        print("Input error...setting starting number to 1.")
+        print("Input error... setting starting number to 1.")
     
-    #Loop Start
-    for filename in sorted(os.listdir(path), key = natural_sort_key):
-        new_name = my_name + str(i) + ".png" #Renames each picture and changes file extension to PNG
-        my_source = path + filename #Gets old file location
-        my_dest = path + new_name #Gets new file location
-        os.rename(my_source, my_dest) #Renames the old file to the new file
-        print(f"Renamed {filename} to {new_name}")
-        time.sleep(0.015)
+    # Converts the unsorted images into PNG
+    for filename in sorted(unsorted_images, key = natural_sort_key):
+        new_name = my_name + str(i) + ".png"
+        src = os.path.join(input_path, filename)
+        dst = os.path.join(output_path, new_name)
+        img = Image.open(src)
+        img.save(dst, 'PNG')
+        print(f"Converted {filename} to {new_name}")
         i += 1
-    #Loop End
-    else:
-        print("All done!")
-        input() #Does not automatically close
-        quit()
+    print("All done!")
+    input() # Does not automatically close
+    quit()
 
-#Execution Check
 if __name__ == '__main__':
     main()
