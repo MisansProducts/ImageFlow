@@ -17,16 +17,13 @@ ImageFlow is a Python program that automates the process of renaming and convert
 
 ## Installation
 
-1. Install Python from [python.org](https://www.python.org/downloads/)
-2. Install Pillow using pip:
-   ```bash
-   pip install Pillow
-   ```
+1. Clone or download this repository
+2. Install Python from [python.org](https://www.python.org/downloads/)
 
 ## Usage
 
 1. Place your unsorted images in the `Input` folder (will be created automatically if it doesn't exist)
-2. Run `main.py`
+2. Run `run.bat` (double-click or run from a command-line interface)
 3. Enter your desired file name prefix when prompted
 4. Enter the starting number for the sequence
 5. The program will process all images and save them as PNGs in the `Output` folder

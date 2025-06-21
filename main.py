@@ -50,8 +50,6 @@ def main():
         print(f"Converted {filename} to {new_name}")
         i += 1
     print("All done!")
-    input() # Does not automatically close
-    quit()
 
 if __name__ == '__main__':
     main()
