@@ -97,8 +97,8 @@ class Main:
         # Sets values
         self.my_name = f"{self.name} " if self.space else self.name
         self.i = self.start
-        leading_zeros = re.match(r'^0+', input_values['number'])
-        self.num_digits = len(leading_zeros.group()) + 1 if leading_zeros else 1
+        self.num_digits = len(input_values['number'])
+        print(self.num_digits)
 
         # Runs the command
         self.run(bool(input_values['rename_only']))
@@ -118,17 +118,22 @@ class Main:
             self.toggle_elements("normal")
             return print(f"Creating a folder named '{input_path.name}'.\nPlease move unsorted images into the '{input_path.name}' directory.")
         
-        # Checks if there are any images in the input directory
-        extensions = {'.png', '.jpg', '.jpeg', '.arw', '.nef', '.webp'}
-        if not any(file.suffix.lower() in extensions for file in input_path.iterdir() if file.is_file()):
-            self.root.update()
-            self.toggle_elements("normal")
-            return print(f"There are no images to sort!\nPlease move unsorted images into the '{input_path.name}' directory.")
-        
-        # Gets a list of all the unsorted images
         if not rename_only:
+            # Checks if there are any images in the input directory
+            extensions = {'.png', '.jpg', '.jpeg', '.arw', '.nef', '.webp'}
+            if not any(file.suffix.lower() in extensions for file in input_path.iterdir() if file.is_file()):
+                self.root.update()
+                self.toggle_elements("normal")
+                return print(f"There are no images to sort!\nPlease move unsorted images into the '{input_path.name}' directory.")
+            
+            # Gets a list of all the unsorted images
             unsorted_images = [file.name for file in input_path.iterdir() if file.is_file() and file.suffix.lower() in extensions]
         else:
+            if not any(item.is_file() for item in input_path.iterdir()):
+                self.root.update()
+                self.toggle_elements("normal")
+                return print(f"There are no images to sort!\nPlease move unsorted images into the '{input_path.name}' directory.")
+            
             # Technically can rename any file, not just images
             unsorted_images = [file.name for file in input_path.iterdir() if file.is_file()]
         
