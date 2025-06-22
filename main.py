@@ -4,7 +4,9 @@ import re
 import tkinter as tk
 from tkinter import ttk
 
+import imageio
 from PIL import Image
+import rawpy
 
 class InputPanel(tk.Frame):
     def __init__(self, master=None, **kwargs):
@@ -109,7 +111,7 @@ class Main:
             return print(f"Creating a folder named '{input_path.name}'.\nPlease move unsorted images into the '{input_path.name}' directory.")
         
         # Checks if there are any images in the input directory
-        extensions = {'.png', '.jpg', '.jpeg'}
+        extensions = {'.png', '.jpg', '.jpeg', '.arw'}
         if not any(file.suffix.lower() in extensions for file in input_path.iterdir() if file.is_file()):
             self.root.update()
             self.toggle_elements("normal")
@@ -129,18 +131,26 @@ class Main:
             new_name = f"{self.my_name}{str(self.i)}.png"
             src = os.path.join(input_path, filename)
             dst = os.path.join(output_path, new_name)
-            img = Image.open(src)
-            img.save(dst, 'PNG')
+            if Path(src).suffix.lower() == '.arw': # Accounts for Sony RAW format
+                self.convert_arw_to_png(src, dst)
+            else: # All other native image formats
+                img = Image.open(src)
+                img.save(dst, 'PNG')
             print(f"Converted {filename} to {new_name}")
             self.i += 1
         print("All done!")
         self.root.update()
         self.toggle_elements("normal")
-    
+        
+    def convert_arw_to_png(self, arw_path, png_path):
+        with rawpy.imread(arw_path) as raw:
+            rgb = raw.postprocess() # Demosaics and converts to RGB
+        imageio.imsave(png_path, rgb)
+
     # Sorting algorithm for numbers (1 to 1, 2 to 2, etc... instead of 1 to 1, 10 to 2, etc)
     def natural_sort_key(self, s: str):
         pattern = re.compile('([0-9]+)')
-        return [int(c) if c.isdigit() else c for c in pattern.split(s)]
+        return [int(c) if c.isdigit() else c.lower() for c in pattern.split(s)]
 
 if __name__ == '__main__':
     root = tk.Tk()
