@@ -111,7 +111,7 @@ class Main:
             return print(f"Creating a folder named '{input_path.name}'.\nPlease move unsorted images into the '{input_path.name}' directory.")
         
         # Checks if there are any images in the input directory
-        extensions = {'.png', '.jpg', '.jpeg', '.arw'}
+        extensions = {'.png', '.jpg', '.jpeg', '.arw', '.webp'}
         if not any(file.suffix.lower() in extensions for file in input_path.iterdir() if file.is_file()):
             self.root.update()
             self.toggle_elements("normal")
