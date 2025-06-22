@@ -5,7 +5,7 @@ import tkinter as tk
 from tkinter import ttk
 
 import imageio
-from PIL import Image
+from PIL import Image, ImageOps
 import rawpy
 
 class InputPanel(tk.Frame):
@@ -135,6 +135,7 @@ class Main:
                 self.convert_arw_to_png(src, dst)
             else: # All other native image formats
                 img = Image.open(src)
+                img = ImageOps.exif_transpose(img) # Auto-rotates based on EXIF
                 img.save(dst, 'PNG')
             print(f"Converted {filename} to {new_name}")
             self.i += 1
