@@ -98,7 +98,6 @@ class Main:
         self.my_name = f"{self.name} " if self.space else self.name
         self.i = self.start
         self.num_digits = len(input_values['number'])
-        print(self.num_digits)
 
         # Runs the command
         self.run(bool(input_values['rename_only']))
@@ -177,7 +176,7 @@ class Main:
         pattern = re.compile('([0-9]+)')
         return [int(c) if c.isdigit() else c.lower() for c in pattern.split(s)]
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     root = tk.Tk()
     app = Main(root)
     root.mainloop()
