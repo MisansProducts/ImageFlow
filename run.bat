@@ -14,15 +14,23 @@ if not exist "%SCRIPT_DIR%\venv" (
         pause
         exit /b 1
     )
+)
 
-    echo Installing dependencies...
-    "%SCRIPT_DIR%\venv\Scripts\python.exe" -m pip install --upgrade pip
-    "%SCRIPT_DIR%\venv\Scripts\python.exe" -m pip install -r "%SCRIPT_DIR%\requirements.txt"
-    if errorlevel 1 (
-        echo ERROR: Failed to install dependencies
-        pause
-        exit /b 1
-    )
+REM Upgrades pip
+"%SCRIPT_DIR%\venv\Scripts\python.exe" -m pip install --upgrade pip --quiet
+if errorlevel 1 (
+    echo ERROR: Failed to upgrade pip
+    pause
+    exit /b 1
+)
+
+REM Verifies requirements
+echo Verifying dependencies...
+"%SCRIPT_DIR%\venv\Scripts\python.exe" -m pip install -r "%SCRIPT_DIR%\requirements.txt" --quiet
+if errorlevel 1 (
+    echo ERROR: Failed to install dependencies
+    pause
+    exit /b 1
 )
 
 REM Runs the main Python script
