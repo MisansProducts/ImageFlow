@@ -26,6 +26,8 @@ class InputPanel(tk.Frame):
         self.number_entry = ttk.Entry(self, validate="key", validatecommand=(self.number_vc, '%P'), width=4, font=font)
         self.space_checkbutton = tk.Checkbutton(self, text="Presume space?", variable=self.space_var, font=font)
         self.rname_checkbutton = tk.Checkbutton(self, text="Rename only?", variable=self.rname_var, font=font)
+        self.exts_label = tk.Label(self, text="Extension", font=font)
+        self.exts_combobox = ttk.Combobox(self, values=[".png", ".jpeg"], state="readonly", width=4, font=font)
 
         # Packs widgets
         self.name_label.grid(row=0, column=0, sticky="e")
@@ -34,13 +36,18 @@ class InputPanel(tk.Frame):
         self.number_entry.grid(row=1, column=1, padx=10, pady=5, sticky="w")
         self.space_checkbutton.grid(row=1, column=2, padx=(0, 10), pady=5, sticky="w")
         self.rname_checkbutton.grid(row=1, column=3, padx=(0, 10), pady=5, sticky="w")
+        self.exts_label.grid(row=2, column=0, sticky="e")
+        self.exts_combobox.grid(row=2, column=1, columnspan=2, padx=10, pady=5, sticky="w")
         
         # Configures grid columns
         self.grid_columnconfigure(0, weight=1)
         self.grid_columnconfigure(1, weight=0)
-
+        
         # Sets focus to name_entry
         self.name_entry.focus()
+
+        # Sets default file extension to PNG
+        self.exts_combobox.current(0)
     
     def validate_number(self, input: str):
         if input.isdigit() or input == "":
@@ -52,7 +59,8 @@ class InputPanel(tk.Frame):
             'name': self.name_entry.get(),
             'number': self.number_entry.get(),
             'presume_space': self.space_var.get(),
-            'rename_only': self.rname_var.get()
+            'rename_only': self.rname_var.get(),
+            'extension': self.exts_combobox.get()
         }
 
 class Main:
@@ -78,9 +86,11 @@ class Main:
         self.default_name = "Image"
         self.default_start = 1
         self.default_space = True
+        self.default_extension = 'PNG'
         self.name = self.default_name
         self.start = self.default_start
         self.space = self.default_space
+        self.extension = self.default_extension
         self.my_name = f"{self.name} " if self.space else self.name
         self.i = self.start
         self.num_digits = 1
@@ -93,6 +103,7 @@ class Main:
         self.name = str(input_values['name']) if input_values['name'] else self.default_name
         self.start = int(input_values['number']) if input_values['number'] else self.default_start
         self.space = bool(input_values['presume_space'])
+        self.extension = str(input_values['extension']).upper()[1:]
 
         # Sets values
         self.my_name = f"{self.name} " if self.space else self.name
@@ -145,7 +156,7 @@ class Main:
         # Converts the unsorted images into PNG
         for filename in sorted(unsorted_images, key = self.natural_sort_key):
             if not rename_only:
-                new_name = f"{self.my_name}{self.i:0{self.num_digits}d}.png"
+                new_name = f"{self.my_name}{self.i:0{self.num_digits}d}.{self.extension.lower()}"
                 src = os.path.join(input_path, filename)
                 dst = os.path.join(output_path, new_name)
                 if Path(src).suffix.lower() in {'.arw', '.nef'}: # Accounts for Sony RAW format
@@ -153,7 +164,8 @@ class Main:
                 else: # All other native image formats
                     img = Image.open(src)
                     img = ImageOps.exif_transpose(img) # Auto-rotates based on EXIF
-                    img.save(dst, 'PNG')
+                    img = img.convert("RGB")
+                    img.save(dst, self.extension)
                 print(f"Converted {filename} to {new_name}")
             else:
                 new_name = f"{self.my_name}{self.i:0{self.num_digits}d}{Path(filename).suffix}"
