@@ -26,6 +26,8 @@ class InputPanel(tk.Frame):
         self.number_entry = ttk.Entry(self, validate="key", validatecommand=(self.number_vc, '%P'), width=4, font=font)
         self.space_checkbutton = tk.Checkbutton(self, text="Presume space?", variable=self.space_var, font=font)
         self.rname_checkbutton = tk.Checkbutton(self, text="Rename only?", variable=self.rname_var, font=font)
+        self.sort_dims_label = tk.Label(self, text="Sort dimension", font=font)
+        self.sort_dims_combobox = ttk.Combobox(self, values=["None", "Width", "Height"], state="readonly", width=6, font=font)
         self.exts_label = tk.Label(self, text="Extension", font=font)
         self.exts_combobox = ttk.Combobox(self, values=[".png", ".jpeg"], state="readonly", width=4, font=font)
 
@@ -36,6 +38,8 @@ class InputPanel(tk.Frame):
         self.number_entry.grid(row=1, column=1, padx=10, pady=5, sticky="w")
         self.space_checkbutton.grid(row=1, column=2, padx=(0, 10), pady=5, sticky="w")
         self.rname_checkbutton.grid(row=1, column=3, padx=(0, 10), pady=5, sticky="w")
+        self.sort_dims_label.grid(row=1, column=4, sticky="e")
+        self.sort_dims_combobox.grid(row=1, column=5, padx=10, pady=5, sticky="w")
         self.exts_label.grid(row=2, column=0, sticky="e")
         self.exts_combobox.grid(row=2, column=1, columnspan=2, padx=10, pady=5, sticky="w")
         
@@ -45,6 +49,9 @@ class InputPanel(tk.Frame):
         
         # Sets focus to name_entry
         self.name_entry.focus()
+
+        # Sets default dimension sorting to None
+        self.sort_dims_combobox.current(0)
 
         # Sets default file extension to PNG
         self.exts_combobox.current(0)
@@ -60,6 +67,7 @@ class InputPanel(tk.Frame):
             'number': self.number_entry.get(),
             'presume_space': self.space_var.get(),
             'rename_only': self.rname_var.get(),
+            'dimension': self.sort_dims_combobox.get(),
             'extension': self.exts_combobox.get()
         }
 
@@ -69,6 +77,7 @@ class Main:
         self.root = root
         self.root.title("ImageFlow")
         self.root.geometry("800x450")
+        self.input_path = Path('Input')
         
         # Creates widgets
         top = tk.Frame(root, height=0) # Placeholder
@@ -86,10 +95,12 @@ class Main:
         self.default_name = "Image"
         self.default_start = 1
         self.default_space = True
+        self.default_dimension = 'None'
         self.default_extension = 'PNG'
         self.name = self.default_name
         self.start = self.default_start
         self.space = self.default_space
+        self.dimension = self.default_dimension
         self.extension = self.default_extension
         self.my_name = f"{self.name} " if self.space else self.name
         self.i = self.start
@@ -103,6 +114,7 @@ class Main:
         self.name = str(input_values['name']) if input_values['name'] else self.default_name
         self.start = int(input_values['number']) if input_values['number'] else self.default_start
         self.space = bool(input_values['presume_space'])
+        self.dimension = str(input_values['dimension']).lower()
         self.extension = str(input_values['extension']).upper()[1:]
 
         # Sets values
@@ -121,7 +133,7 @@ class Main:
     
     def run(self, rename_only=False):
         # Creates input directory
-        input_path = Path('Input')
+        input_path = self.input_path
         if not input_path.exists():
             input_path.mkdir(parents=True)
             self.root.update()
@@ -152,9 +164,9 @@ class Main:
         if not output_path.exists():
             output_path.mkdir(parents=True)
             print(f"Creating a folder named '{output_path.name}'.")
-        
+
         # Converts the unsorted images into PNG
-        for filename in sorted(unsorted_images, key = self.natural_sort_key):
+        for filename in sorted(unsorted_images, key = self.dimension_sort_key):
             if not rename_only:
                 new_name = f"{self.my_name}{self.i:0{self.num_digits}d}.{self.extension.lower()}"
                 src = os.path.join(input_path, filename)
@@ -187,6 +199,13 @@ class Main:
     def natural_sort_key(self, s: str):
         pattern = re.compile('([0-9]+)')
         return [int(c) if c.isdigit() else c.lower() for c in pattern.split(s)]
+    
+    # Sorting algorithm for dimensions (prioritizes width or height)
+    def dimension_sort_key(self, filename: str):
+        src = os.path.join(self.input_path, filename)
+        with Image.open(src) as img:
+            width, height = img.size
+            return (-width, -height, self.natural_sort_key(filename))
 
 if __name__ == "__main__":
     root = tk.Tk()
