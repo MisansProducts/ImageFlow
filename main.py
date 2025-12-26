@@ -166,7 +166,8 @@ class Main:
             print(f"Creating a folder named '{output_path.name}'.")
 
         # Converts the unsorted images into PNG
-        for filename in sorted(unsorted_images, key = self.dimension_sort_key):
+        sorted_images = sorted(unsorted_images, key = self.dimension_sort_key) if self.dimension != 'none' else sorted(unsorted_images, key = self.natural_sort_key)
+        for filename in sorted_images:
             if not rename_only:
                 new_name = f"{self.my_name}{self.i:0{self.num_digits}d}.{self.extension.lower()}"
                 src = os.path.join(input_path, filename)
@@ -205,6 +206,8 @@ class Main:
         src = os.path.join(self.input_path, filename)
         with Image.open(src) as img:
             width, height = img.size
+            if self.dimension == 'height':
+                return (-height, -width, self.natural_sort_key(filename))
             return (-width, -height, self.natural_sort_key(filename))
 
 if __name__ == "__main__":
