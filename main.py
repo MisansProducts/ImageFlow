@@ -135,10 +135,6 @@ class InputPanel(tk.Frame):
         if any(ch in proposed for ch in '<>:"/\\|?*'):
             return False
 
-        # Disallow trailing space (trailing period is okay?) (Windows UI/Win32 edge rule)
-        if proposed.endswith(" "):
-            return False
-
         # Disallow Windows reserved device names (case-insensitive), even with extension
         base = proposed.split(".", 1)[0].strip().upper()
         if base in self._WINDOWS_RESERVED:
