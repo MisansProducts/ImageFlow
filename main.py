@@ -4,130 +4,143 @@ import re
 import shutil
 import tkinter as tk
 from tkinter import ttk
+from typing import Dict, Any, Optional
 
 import imageio
 from PIL import Image, ImageOps
 import rawpy
 
 class InputPanel(tk.Frame):
-    def __init__(self, master=None, **kwargs):
+    def __init__(self, master: Optional[tk.Widget]=None, **kwargs):
         super().__init__(master, **kwargs)
 
-        # Housekeeping
-        font=('Arial', 12)
-        number_vc = self.register(self.validate_number)
+        # Configuration
+        self.font = ('Arial', 12)
+
+        # Variables
+        self._init_variables()
+
+        # UI Setup
+        self._create_widgets()
+        self._setup_layout()
+
+        # Sets defaults
+        self.sort_dims_combobox.current(0) # None
+        self.exts_combobox.current(0) # .png
+        self.name_entry.focus()
+    
+    def _init_variables(self):
+        """Initializes Tkinter variables and traces."""
         self.name_var = tk.StringVar()
         self.name_var.trace_add("write", self.on_name_change)
-        self.space_var = tk.BooleanVar(value=True)
+
         self.number_var = tk.StringVar()
         self.number_var.trace_add("write", self.on_number_change)
+
+        self.space_var = tk.BooleanVar(value=True)
         self.rename_var = tk.BooleanVar(value=False)
-
-        # Creates widgets
-        name_label = tk.Label(self, text="Image name", font=font)
-        row0_frame = tk.Frame(self)
-        self.name_entry = ttk.Entry(row0_frame, width=22, textvariable=self.name_var, font=font)
-        space_checkbutton = tk.Checkbutton(row0_frame, text="Presume space?", command=self.on_space_change, variable=self.space_var, font=font)
-
-        number_label = tk.Label(self, text="Starting number", font=font)
-        row1_frame = tk.Frame(self)
-        self.number_entry = ttk.Entry(row1_frame, textvariable=self.number_var, validate="key", validatecommand=(number_vc, '%P'), width=4, font=font)
-        rename_checkbutton = tk.Checkbutton(row1_frame, text="Rename only?", command=self.toggle_rename_state, variable=self.rename_var, font=font)
-        sort_dims_label = tk.Label(row1_frame, text="Sort dimension", font=font)
-        self.sort_dims_combobox = ttk.Combobox(row1_frame, values=["None", "Width", "Height"], state="readonly", width=6, font=font)
+    
+    def _create_widgets(self):
+        """Initializes all widgets."""
+        # Validation variables
+        number_vc = self.register(self.validate_number)
         
-        self.exts_label = tk.Label(self, text="Extension", font=font)
-        self.exts_combobox = ttk.Combobox(self, values=[".png", ".jpeg"], state="readonly", width=4, font=font)
+        # --- Row 0 ---
+        self.name_label = tk.Label(self, text="Image name", font=self.font)
+        self.row0_frame = tk.Frame(self) # container to keep alignment clean
+        self.name_entry = ttk.Entry(self.row0_frame, width=22, textvariable=self.name_var, font=self.font)
+        self.space_check = tk.Checkbutton(self.row0_frame, text="Presume space?", command=self.on_name_change, variable=self.space_var, font=self.font)
+
+        # --- Row 1 ---
+        self.number_label = tk.Label(self, text="Starting number", font=self.font)
+        self.row1_frame = tk.Frame(self) # container to keep alignment clean
+        self.number_entry = ttk.Entry(self.row1_frame, textvariable=self.number_var, validate="key", validatecommand=(number_vc, '%P'), width=4, font=self.font)
+        self.rename_check = tk.Checkbutton(self.row1_frame, text="Rename only?", command=self.toggle_rename_state, variable=self.rename_var, font=self.font)
+        self.sort_label = tk.Label(self.row1_frame, text="Sort dimension", font=self.font)
+        self.sort_dims_combobox = ttk.Combobox(self.row1_frame, values=["None", "Width", "Height"], state="readonly", width=6, font=self.font)
+        
+        # --- Row 2 ---
+        self.exts_label = tk.Label(self, text="Extension", font=self.font)
+        self.exts_combobox = ttk.Combobox(self, values=[".png", ".jpeg"], state="readonly", width=4, font=self.font)
         self.exts_combobox.bind("<<ComboboxSelected>>", self.on_extension_change)
 
-        self.preview_label = tk.Label(self, text="Preview", font=font)
-        row3_frame = tk.Frame(self)
-        self.result_name_label = tk.Label(row3_frame, text="Image ", font=font, bd=0, padx=0)
-        self.result_number_label = tk.Label(row3_frame, text="1", font=font, bd=0, padx=0)
-        self.result_extension_label = tk.Label(row3_frame, text=".png", font=font, bd=0, padx=0)
+        # --- Row 3 ---
+        self.preview_label = tk.Label(self, text="Preview", font=self.font)
+        self.preview_frame = tk.Frame(self) # container to keep alignment clean
+        self.result_name_label = tk.Label(self.preview_frame, text="Image ", font=self.font, bd=0, padx=0)
+        self.result_number_label = tk.Label(self.preview_frame, text="1", font=self.font, bd=0, padx=0)
+        self.result_extension_label = tk.Label(self.preview_frame, text=".png", font=self.font, bd=0, padx=0)
 
-        # Packs widgets
-        name_label.grid(row=0, column=0, sticky="e")
-        row0_frame.grid(row=0, column=1, columnspan=3, padx=10, pady=5, sticky="w")
+    def _setup_layout(self):
+        """Places widgets using consistent grid layout for main rows, packs for sub-widgets."""
+        pad_opts = {'padx': 10, 'pady': 5, 'sticky': 'w'}
+        label_opts = {'sticky': 'e'}
+        
+        # --- Row 0 ---
+        self.name_label.grid(row=0, column=0, **label_opts)
+        self.row0_frame.grid(row=0, column=1, columnspan=3, **pad_opts)
         self.name_entry.pack(side="left")
-        space_checkbutton.pack(side="left", padx=(10, 0))
+        self.space_check.pack(side="left", padx=(10, 0))
 
-        number_label.grid(row=1, column=0, sticky="e")
-        row1_frame.grid(row=1, column=1, columnspan=3, padx=10, pady=5, sticky="w")
+        # --- Row 1 ---
+        self.number_label.grid(row=1, column=0, **label_opts)
+        self.row1_frame.grid(row=1, column=1, columnspan=3, **pad_opts)
         self.number_entry.pack(side="left")
-        rename_checkbutton.pack(side="left", padx=(10, 0))
-        sort_dims_label.pack(side="left")
-        self.sort_dims_combobox.pack(side="left", padx=(10, 0))
+        self.rename_check.pack(side="left", padx=(10, 0))
+        self.sort_label.pack(side="left", padx=(10, 0))
+        self.sort_dims_combobox.pack(side="left", padx=(5, 0))
 
-        self.exts_label.grid(row=2, column=0, sticky="e")
-        self.exts_combobox.grid(row=2, column=1, padx=10, pady=5, sticky="w")
-
-        self.preview_label.grid(row=3, column=0, sticky="e")
-        row3_frame.grid(row=3, column=1, padx=10, pady=5, sticky="w")
+        # --- Row 2 ---
+        self.exts_label.grid(row=2, column=0, **label_opts)
+        self.exts_combobox.grid(row=2, column=1, **pad_opts)
+        
+        # --- Row 3 ---
+        self.preview_label.grid(row=3, column=0, **label_opts)
+        self.preview_frame.grid(row=3, column=1, columnspan=3, **pad_opts)
         self.result_name_label.pack(side="left")
         self.result_number_label.pack(side="left")
         self.result_extension_label.pack(side="left")
-        
-        # Sets focus to name_entry
-        self.name_entry.focus()
-
-        # Sets default dimension sorting to None
-        self.sort_dims_combobox.current(0)
-
-        # Sets default file extension to PNG
-        self.exts_combobox.current(0)
     
-    def on_name_change(self, var, index, mode):
-        current_text = self.name_var.get()
+    def on_name_change(self, *args):
+        text = self.name_var.get()
         if self.space_var.get():
-            current_text = f"{current_text} " if current_text else "Image "
+            display_text = f"{text} " if text else "Image "
         else:
-            current_text = f"{current_text}" if current_text else "Image"
-        self.result_name_label.config(text=current_text)
+            display_text = f"{text}" if text else "Image"
+        self.result_name_label.config(text=display_text)
     
-    def on_space_change(self):
-        current_text = self.name_var.get()
-        if self.space_var.get():
-            current_text = f"{current_text} " if current_text else "Image "
-        else:
-            current_text = f"{current_text}" if current_text else "Image"
-        self.result_name_label.config(text=current_text)
+    def on_number_change(self, *args):
+        num = self.number_var.get()
+        self.result_number_label.config(text=num if num else "1")
     
-    def on_number_change(self, var, index, mode):
-        current_number = self.number_var.get()
-        current_number = current_number if current_number else "1"
-        self.result_number_label.config(text=current_number)
-    
-    def validate_number(self, input: str):
+    def validate_number(self, input: str) -> bool:
         if input.isdigit() or input == "":
             return True
         return False
     
     def toggle_rename_state(self):
-        current_text = self.exts_combobox.get()
         if self.rename_var.get():
-            current_text = ".*"
             self.exts_label.config(state="disabled")
             self.exts_combobox.config(state="disabled")
+            self.result_extension_label.config(text=".*")
         else:
             self.exts_label.config(state="normal")
             self.exts_combobox.config(state="readonly")
-        self.result_extension_label.config(text=current_text)
+            self.result_extension_label.config(text=self.exts_combobox.get())
     
-    def on_extension_change(self, event):
-        current_text = self.exts_combobox.get()
-        self.result_extension_label.config(text=current_text)
+    def on_extension_change(self, *args):
+        self.result_extension_label.config(text=self.exts_combobox.get())
     
-    def get_values(self):
+    def get_values(self) -> Dict[str, Any]:
         return {
-            'presume_space': self.space_var.get(),
-            'rename_only': self.rename_var.get(),
             'name': self.name_entry.get(),
             'number': self.number_entry.get(),
-            'dimension': self.sort_dims_combobox.get(),
-            'extension': self.exts_combobox.get()
+            'extension': self.exts_combobox.get(),
+            'presume_space': self.space_var.get(),
+            'rename_only': self.rename_var.get(),
+            'dimension': self.sort_dims_combobox.get()
         }
-
+    
 class Main:
     def __init__(self, root: tk.Tk):
         # Housekeeping
