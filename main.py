@@ -13,6 +13,14 @@ import rawpy
 class InputPanel(tk.Frame):
     def __init__(self, master: Optional[tk.Widget]=None, **kwargs):
         super().__init__(master, **kwargs)
+        
+        # Housekeeping
+        self._CTRL_CHARS_RE = re.compile(r"[\x00-\x1F]") # ASCII control chars 0x00–0x1F (NUL through Unit Separator)
+        self._WINDOWS_RESERVED = {
+            "CON", "PRN", "AUX", "NUL",
+            *(f"COM{i}" for i in range(1, 10)),
+            *(f"LPT{i}" for i in range(1, 10))
+        }
 
         # Configuration
         self.font = ('Arial', 12)
@@ -43,18 +51,19 @@ class InputPanel(tk.Frame):
     def _create_widgets(self):
         """Initializes all widgets."""
         # Validation variables
-        number_vc = self.register(self.validate_number)
+        name_vc = (self.register(self.validate_name), '%P')
+        number_vc = (self.register(self.validate_number), '%P')
         
         # --- Row 0 ---
         self.name_label = tk.Label(self, text="Image name", font=self.font)
         self.row0_frame = tk.Frame(self) # container to keep alignment clean
-        self.name_entry = ttk.Entry(self.row0_frame, width=22, textvariable=self.name_var, font=self.font)
+        self.name_entry = ttk.Entry(self.row0_frame, width=22, textvariable=self.name_var, validate="key", validatecommand=name_vc, font=self.font)
         self.space_check = tk.Checkbutton(self.row0_frame, text="Presume space?", command=self.on_name_change, variable=self.space_var, font=self.font)
 
         # --- Row 1 ---
         self.number_label = tk.Label(self, text="Starting number", font=self.font)
         self.row1_frame = tk.Frame(self) # container to keep alignment clean
-        self.number_entry = ttk.Entry(self.row1_frame, textvariable=self.number_var, validate="key", validatecommand=(number_vc, '%P'), width=4, font=self.font)
+        self.number_entry = ttk.Entry(self.row1_frame, textvariable=self.number_var, validate="key", validatecommand=number_vc, width=4, font=self.font)
         self.rename_check = tk.Checkbutton(self.row1_frame, text="Rename only?", command=self.toggle_rename_state, variable=self.rename_var, font=self.font)
         self.sort_label = tk.Label(self.row1_frame, text="Sort dimension", font=self.font)
         self.sort_dims_combobox = ttk.Combobox(self.row1_frame, values=["None", "Width", "Height"], state="readonly", width=6, font=self.font)
@@ -112,7 +121,31 @@ class InputPanel(tk.Frame):
     def on_number_change(self, *args):
         num = self.number_var.get()
         self.result_number_label.config(text=num if num else "1")
-    
+
+    def validate_name(self, proposed: str) -> bool:
+        # Allow clearing the field
+        if proposed == "":
+            return True
+
+        # Disallow ASCII control characters (includes NUL)
+        if self._CTRL_CHARS_RE.search(proposed):
+            return False
+
+        # Disallow Windows-forbidden characters: < > : " / \ | ? *
+        if any(ch in proposed for ch in '<>:"/\\|?*'):
+            return False
+
+        # Disallow trailing space (trailing period is okay?) (Windows UI/Win32 edge rule)
+        if proposed.endswith(" "):
+            return False
+
+        # Disallow Windows reserved device names (case-insensitive), even with extension
+        base = proposed.split(".", 1)[0].strip().upper()
+        if base in self._WINDOWS_RESERVED:
+            return False
+
+        return True
+
     def validate_number(self, input: str) -> bool:
         if input.isdigit() or input == "":
             return True
