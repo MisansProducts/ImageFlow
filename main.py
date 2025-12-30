@@ -24,6 +24,8 @@ class InputPanel(tk.Frame):
 
         # Configuration
         self.font = ('Arial', 12)
+        self.font_small = ('Arial', 10)
+        self.font_mono = ('Courier New', 12)
 
         # Variables
         self._init_variables()
@@ -33,6 +35,7 @@ class InputPanel(tk.Frame):
         self._setup_layout()
 
         # Sets defaults
+        self.on_filter_dupes_change() # disables tolerance widgets
         self.sort_dims_combobox.current(0) # None
         self.exts_combobox.current(0) # .png
         self.name_entry.focus()
@@ -46,7 +49,12 @@ class InputPanel(tk.Frame):
         self.number_var.trace_add("write", self.on_number_change)
 
         self.space_var = tk.BooleanVar(value=True)
+
         self.rename_var = tk.BooleanVar(value=False)
+
+        self.filter_dupes_var = tk.BooleanVar(value=False)
+
+        self.tolerance_var = tk.DoubleVar(value=5.0)
     
     def _create_widgets(self):
         """Initializes all widgets."""
@@ -56,17 +64,26 @@ class InputPanel(tk.Frame):
         
         # --- Row 0 ---
         self.name_label = tk.Label(self, text="Image name", font=self.font)
-        self.row0_frame = tk.Frame(self) # container to keep alignment clean
+        self.row0_frame = tk.Frame(self)
         self.name_entry = ttk.Entry(self.row0_frame, width=22, textvariable=self.name_var, validate="key", validatecommand=name_vc, font=self.font)
-        self.space_check = tk.Checkbutton(self.row0_frame, text="Presume space?", command=self.on_name_change, variable=self.space_var, font=self.font)
+        self.space_check = tk.Checkbutton(self.row0_frame, text="Presume space?", command=self.on_name_change, variable=self.space_var, font=self.font_small)
+        self.rename_check = tk.Checkbutton(self.row0_frame, text="Rename only?", command=self.on_rename_change, variable=self.rename_var, font=self.font_small)
 
         # --- Row 1 ---
         self.number_label = tk.Label(self, text="Starting number", font=self.font)
-        self.row1_frame = tk.Frame(self) # container to keep alignment clean
+        self.row1_frame = tk.Frame(self)
         self.number_entry = ttk.Entry(self.row1_frame, textvariable=self.number_var, validate="key", validatecommand=number_vc, width=4, font=self.font)
-        self.rename_check = tk.Checkbutton(self.row1_frame, text="Rename only?", command=self.toggle_rename_state, variable=self.rename_var, font=self.font)
-        self.sort_label = tk.Label(self.row1_frame, text="Sort dimension", font=self.font)
-        self.sort_dims_combobox = ttk.Combobox(self.row1_frame, values=["None", "Width", "Height"], state="readonly", width=6, font=self.font)
+        self.sort_dims_label = tk.Label(self.row1_frame, text="Sort dimension", font=self.font_small)
+        self.sort_dims_combobox = ttk.Combobox(self.row1_frame, values=["None", "Width", "Height"], state="readonly", width=6, font=self.font_small)
+        self.filter_dupes_check = tk.Checkbutton(self.row1_frame, text="Filter duplicates?", command=self.on_filter_dupes_change, variable=self.filter_dupes_var, font=self.font_small)
+        self.tolerance_label = tk.Label(self.row1_frame, text="Tolerance", font=self.font_small)
+        self.tolerance_scale = ttk.Scale(self.row1_frame, from_=0, to=10, length=125, command=lambda _: self.on_tolerance_change(), variable=self.tolerance_var)
+        def jump_to_mouse(event: tk.Event): # click to jump functionality for slider
+            self.tolerance_scale.event_generate('<Button-2>', x=event.x, y=event.y) # does exactly what right-click does
+            return "break" # stops the default "step" behavior
+        self.tolerance_scale.bind('<Button-1>', jump_to_mouse)
+        self.tolerance_number_label = tk.Label(self.row1_frame, text="0.5", font=self.font_small)
+        
         
         # --- Row 2 ---
         self.exts_label = tk.Label(self, text="Extension", font=self.font)
@@ -75,10 +92,10 @@ class InputPanel(tk.Frame):
 
         # --- Row 3 ---
         self.preview_label = tk.Label(self, text="Preview", font=self.font)
-        self.preview_frame = tk.Frame(self) # container to keep alignment clean
-        self.result_name_label = tk.Label(self.preview_frame, text="Image ", font=self.font, bd=0, padx=0)
-        self.result_number_label = tk.Label(self.preview_frame, text="1", font=self.font, bd=0, padx=0)
-        self.result_extension_label = tk.Label(self.preview_frame, text=".png", font=self.font, bd=0, padx=0)
+        self.preview_frame = tk.Frame(self)
+        self.result_name_label = tk.Label(self.preview_frame, text="Image ", font=self.font_mono, bd=0, padx=0)
+        self.result_number_label = tk.Label(self.preview_frame, text="1", font=self.font_mono, bd=0, padx=0)
+        self.result_extension_label = tk.Label(self.preview_frame, text=".png", font=self.font_mono, bd=0, padx=0)
 
     def _setup_layout(self):
         """Places widgets using consistent grid layout for main rows, packs for sub-widgets."""
@@ -90,14 +107,18 @@ class InputPanel(tk.Frame):
         self.row0_frame.grid(row=0, column=1, columnspan=3, **pad_opts)
         self.name_entry.pack(side="left")
         self.space_check.pack(side="left", padx=(10, 0))
+        self.rename_check.pack(side="left", padx=(5, 0))
 
         # --- Row 1 ---
         self.number_label.grid(row=1, column=0, **label_opts)
         self.row1_frame.grid(row=1, column=1, columnspan=3, **pad_opts)
         self.number_entry.pack(side="left")
-        self.rename_check.pack(side="left", padx=(10, 0))
-        self.sort_label.pack(side="left", padx=(10, 0))
+        self.sort_dims_label.pack(side="left", padx=(10, 0))
         self.sort_dims_combobox.pack(side="left", padx=(5, 0))
+        self.filter_dupes_check.pack(side="left", padx=(10, 0))
+        self.tolerance_label.pack(side="left", padx=(5, 0))
+        self.tolerance_scale.pack(side="left")
+        self.tolerance_number_label.pack(side="left")
 
         # --- Row 2 ---
         self.exts_label.grid(row=2, column=0, **label_opts)
@@ -118,9 +139,34 @@ class InputPanel(tk.Frame):
             display_text = f"{text}" if text else "Image"
         self.result_name_label.config(text=display_text)
     
+    def on_rename_change(self):
+        if self.rename_var.get():
+            self.exts_label.config(state="disabled")
+            self.exts_combobox.config(state="disabled")
+            self.result_extension_label.config(text=".*")
+        else:
+            self.exts_label.config(state="normal")
+            self.exts_combobox.config(state="readonly")
+            self.result_extension_label.config(text=self.exts_combobox.get())
+    
     def on_number_change(self, *args):
         num = self.number_var.get()
         self.result_number_label.config(text=num if num else "1")
+    
+    def on_filter_dupes_change(self):
+        if self.filter_dupes_var.get():
+            self.tolerance_label.config(state="normal")
+            self.tolerance_scale.config(state="enabled")
+            self.tolerance_number_label.config(state="normal")
+        else:
+            self.tolerance_label.config(state="disabled")
+            self.tolerance_scale.config(state="disabled")
+            self.tolerance_number_label.config(state="disabled")
+
+    def on_tolerance_change(self, _=None):
+        value = round(self.tolerance_var.get(), 1) # rounds to nearest 0.1
+        self.tolerance_var.set(value)
+        self.tolerance_number_label.config(text=f"{value:.1f}")
 
     def validate_name(self, proposed: str) -> bool:
         # Allow clearing the field
@@ -146,16 +192,6 @@ class InputPanel(tk.Frame):
         if input.isdigit() or input == "":
             return True
         return False
-    
-    def toggle_rename_state(self):
-        if self.rename_var.get():
-            self.exts_label.config(state="disabled")
-            self.exts_combobox.config(state="disabled")
-            self.result_extension_label.config(text=".*")
-        else:
-            self.exts_label.config(state="normal")
-            self.exts_combobox.config(state="readonly")
-            self.result_extension_label.config(text=self.exts_combobox.get())
     
     def on_extension_change(self, *args):
         self.result_extension_label.config(text=self.exts_combobox.get())
