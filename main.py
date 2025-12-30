@@ -32,10 +32,10 @@ class InputPanel(tk.Frame):
 
         # UI Setup
         self._create_widgets()
+        self._setup_binds()
         self._setup_layout()
 
         # Sets defaults
-        self.on_filter_dupes_change() # disables tolerance widgets
         self.sort_dims_combobox.current(0) # None
         self.exts_combobox.current(0) # .png
         self.name_entry.focus()
@@ -65,30 +65,24 @@ class InputPanel(tk.Frame):
         # --- Row 0 ---
         self.name_label = tk.Label(self, text="Image name", font=self.font)
         self.row0_frame = tk.Frame(self)
-        self.name_entry = ttk.Entry(self.row0_frame, width=22, textvariable=self.name_var, validate="key", validatecommand=name_vc, font=self.font)
-        self.space_check = tk.Checkbutton(self.row0_frame, text="Presume space?", command=self.on_name_change, variable=self.space_var, font=self.font_small)
-        self.rename_check = tk.Checkbutton(self.row0_frame, text="Rename only?", command=self.on_rename_change, variable=self.rename_var, font=self.font_small)
+        self.name_entry = ttk.Entry(self.row0_frame, textvariable=self.name_var, validate="key", validatecommand=name_vc, width=22, font=self.font)
+        self.space_check = tk.Checkbutton(self.row0_frame, variable=self.space_var, text="Presume space?", command=self.on_name_change, font=self.font_small)
+        self.rename_check = tk.Checkbutton(self.row0_frame, variable=self.rename_var, text="Rename only?", command=self.on_rename_change, font=self.font_small)
 
         # --- Row 1 ---
         self.number_label = tk.Label(self, text="Starting number", font=self.font)
         self.row1_frame = tk.Frame(self)
         self.number_entry = ttk.Entry(self.row1_frame, textvariable=self.number_var, validate="key", validatecommand=number_vc, width=4, font=self.font)
         self.sort_dims_label = tk.Label(self.row1_frame, text="Sort dimension", font=self.font_small)
-        self.sort_dims_combobox = ttk.Combobox(self.row1_frame, values=["None", "Width", "Height"], state="readonly", width=6, font=self.font_small)
-        self.filter_dupes_check = tk.Checkbutton(self.row1_frame, text="Filter duplicates?", command=self.on_filter_dupes_change, variable=self.filter_dupes_var, font=self.font_small)
-        self.tolerance_label = tk.Label(self.row1_frame, text="Tolerance", font=self.font_small)
-        self.tolerance_scale = ttk.Scale(self.row1_frame, from_=0, to=10, length=125, command=lambda _: self.on_tolerance_change(), variable=self.tolerance_var)
-        def jump_to_mouse(event: tk.Event): # click to jump functionality for slider
-            self.tolerance_scale.event_generate('<Button-2>', x=event.x, y=event.y) # does exactly what right-click does
-            return "break" # stops the default "step" behavior
-        self.tolerance_scale.bind('<Button-1>', jump_to_mouse)
-        self.tolerance_number_label = tk.Label(self.row1_frame, text="0.5", font=self.font_small)
-        
+        self.sort_dims_combobox = ttk.Combobox(self.row1_frame, values=["None", "Width", "Height"], width=6, font=self.font_small, state="readonly")
+        self.filter_dupes_check = tk.Checkbutton(self.row1_frame, variable=self.filter_dupes_var, text="Filter duplicates?", command=self.on_filter_dupes_change, font=self.font_small)
+        self.tolerance_label = tk.Label(self.row1_frame, text="Tolerance", font=self.font_small, state="disabled")
+        self.tolerance_scale = ttk.Scale(self.row1_frame, variable=self.tolerance_var, from_=0, to=10, length=125, command=lambda _: self.on_tolerance_change(), state="disabled")
+        self.tolerance_number_label = tk.Label(self.row1_frame, text="0.5", font=self.font_small, state="disabled")
         
         # --- Row 2 ---
         self.exts_label = tk.Label(self, text="Extension", font=self.font)
-        self.exts_combobox = ttk.Combobox(self, values=[".png", ".jpeg"], state="readonly", width=4, font=self.font)
-        self.exts_combobox.bind("<<ComboboxSelected>>", self.on_extension_change)
+        self.exts_combobox = ttk.Combobox(self, values=[".png", ".jpeg"], width=4, font=self.font, state="readonly")
 
         # --- Row 3 ---
         self.preview_label = tk.Label(self, text="Preview", font=self.font)
@@ -96,6 +90,17 @@ class InputPanel(tk.Frame):
         self.result_name_label = tk.Label(self.preview_frame, text="Image ", font=self.font_mono, bd=0, padx=0)
         self.result_number_label = tk.Label(self.preview_frame, text="1", font=self.font_mono, bd=0, padx=0)
         self.result_extension_label = tk.Label(self.preview_frame, text=".png", font=self.font_mono, bd=0, padx=0)
+    
+    def _setup_binds(self):
+        """Sets up bindings for widgets."""
+        # Adds click-to-jump functionality for the tolerance scale
+        def jump_to_mouse(event: tk.Event):
+            self.tolerance_scale.event_generate('<Button-2>', x=event.x, y=event.y) # does exactly what right-click does
+            return "break" # stops the default "step" behavior
+        self.tolerance_scale.bind('<Button-1>', jump_to_mouse)
+
+        # Allows selecting an option in the extensions combobox to trigger on_extension_change()
+        self.exts_combobox.bind("<<ComboboxSelected>>", self.on_extension_change)
 
     def _setup_layout(self):
         """Places widgets using consistent grid layout for main rows, packs for sub-widgets."""
