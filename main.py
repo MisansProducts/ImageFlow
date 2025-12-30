@@ -136,6 +136,31 @@ class InputPanel(tk.Frame):
         self.result_number_label.pack(side="left")
         self.result_extension_label.pack(side="left")
     
+    def validate_name(self, proposed: str) -> bool:
+        # Allow clearing the field
+        if proposed == "":
+            return True
+
+        # Disallow ASCII control characters (includes NUL)
+        if self._CTRL_CHARS_RE.search(proposed):
+            return False
+
+        # Disallow Windows-forbidden characters: < > : " / \ | ? *
+        if any(ch in proposed for ch in '<>:"/\\|?*'):
+            return False
+
+        # Disallow Windows reserved device names (case-insensitive), even with extension
+        base = proposed.split(".", 1)[0].strip().upper()
+        if base in self._WINDOWS_RESERVED:
+            return False
+
+        return True
+    
+    def validate_number(self, input: str) -> bool:
+        if input.isdigit() or input == "":
+            return True
+        return False
+    
     def on_name_change(self, *args):
         text = self.name_var.get()
         if self.space_var.get():
@@ -172,31 +197,6 @@ class InputPanel(tk.Frame):
         value = round(self.tolerance_var.get(), 1) # rounds to nearest 0.1
         self.tolerance_var.set(value)
         self.tolerance_number_label.config(text=f"{value:.1f}")
-
-    def validate_name(self, proposed: str) -> bool:
-        # Allow clearing the field
-        if proposed == "":
-            return True
-
-        # Disallow ASCII control characters (includes NUL)
-        if self._CTRL_CHARS_RE.search(proposed):
-            return False
-
-        # Disallow Windows-forbidden characters: < > : " / \ | ? *
-        if any(ch in proposed for ch in '<>:"/\\|?*'):
-            return False
-
-        # Disallow Windows reserved device names (case-insensitive), even with extension
-        base = proposed.split(".", 1)[0].strip().upper()
-        if base in self._WINDOWS_RESERVED:
-            return False
-
-        return True
-
-    def validate_number(self, input: str) -> bool:
-        if input.isdigit() or input == "":
-            return True
-        return False
     
     def on_extension_change(self, *args):
         self.result_extension_label.config(text=self.exts_combobox.get())
