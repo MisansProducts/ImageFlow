@@ -4,7 +4,7 @@ import re
 import shutil
 import tkinter as tk
 from tkinter import ttk
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
 
 import imageio
 from PIL import Image, ImageOps
@@ -208,7 +208,9 @@ class InputPanel(tk.Frame):
             'extension': self.exts_combobox.get(),
             'presume_space': self.space_var.get(),
             'rename_only': self.rename_var.get(),
-            'dimension': self.sort_dims_combobox.get()
+            'dimension': self.sort_dims_combobox.get(),
+            'filter_dupes': self.filter_dupes_var.get(),
+            'tolerance': self.tolerance_var.get()
         }
     
 class Main:
@@ -218,6 +220,9 @@ class Main:
         self.root.title("ImageFlow")
         self.root.geometry("800x450")
         self.input_path = Path('Input')
+        self.output_path = Path('Output')
+        self.dupes_path = Path('Duplicates')
+        self.unsorted_images = []
         
         # Creates widgets
         top = tk.Frame(root, height=0) # Placeholder
@@ -231,110 +236,186 @@ class Main:
         self.convert_button.pack(anchor='center')
         bottom.pack(expand=True)
 
-        # Variables
+        # Default variables
         self.default_name = "Image"
-        self.default_start = 1
-        self.default_space = True
-        self.default_dimension = 'None'
+        self.default_number = 1
         self.default_extension = 'PNG'
-        self.name = self.default_name
-        self.start = self.default_start
-        self.space = self.default_space
-        self.dimension = self.default_dimension
-        self.extension = self.default_extension
-        self.my_name = f"{self.name} " if self.space else self.name
-        self.i = self.start
-        self.num_digits = 1
+        self.default_presume_space = True
+        self.default_rename_only = False
+        self.default_dimension = 'None'
+        self.default_filter_dupes = False
+        self.default_tolerance = 5.0
 
+        self.default_num_digits = 1
+
+        # Variables
+        self.name = self.default_name
+        self.number = self.default_number
+        self.extension = self.default_extension
+        self.presume_space = self.default_presume_space
+        self.rename_only = self.default_rename_only
+        self.dimension = self.default_dimension
+        self.filter_dupes = self.default_filter_dupes
+        self.tolerance = self.default_tolerance
+
+        self.num_digits = self.default_num_digits
+
+    def debug_values(self):
+        """Prints the values used in the image conversion along with their types."""
+        print("--- Defaults ---")
+        defaults = [
+            ('default_name', self.default_name),
+            ('default_number', self.default_number),
+            ('default_extension', self.default_extension),
+            ('default_presume_space', self.default_presume_space),
+            ('default_rename_only', self.default_rename_only),
+            ('default_dimension', self.default_dimension),
+            ('default_filter_dupes', self.default_filter_dupes),
+            ('default_tolerance', self.default_tolerance),
+            ('default_num_digits', self.default_num_digits)
+        ]
+        for var_name, value in defaults:
+            print(f"{var_name}: {value} ({type(value).__name__})")
+        
+        print("\n--- Current ---")
+        values = [
+            ('name', self.name),
+            ('number', self.number),
+            ('extension', self.extension),
+            ('presume_space', self.presume_space),
+            ('rename_only', self.rename_only),
+            ('dimension', self.dimension),
+            ('filter_dupes', self.filter_dupes),
+            ('tolerance', self.tolerance),
+            ('num_digits', self.num_digits)
+        ]
+        for var_name, value in values:
+            print(f"{var_name}: {value} ({type(value).__name__})")
+
+    def _iter_togglables(self) -> list[tk.Misc]:
+        """Helper function that returns all widgets in InputPanel."""
+        return [
+            self.input_panel.name_label,
+            self.input_panel.name_entry,
+            self.input_panel.space_check,
+            self.input_panel.rename_check,
+            self.input_panel.number_label,
+            self.input_panel.number_entry,
+            self.input_panel.sort_dims_label,
+            self.input_panel.sort_dims_combobox,
+            self.input_panel.filter_dupes_check,
+            self.input_panel.tolerance_label,
+            self.input_panel.tolerance_scale,
+            self.input_panel.tolerance_number_label,
+            self.input_panel.exts_label,
+            self.input_panel.exts_combobox,
+            self.input_panel.preview_label,
+            self.input_panel.result_name_label,
+            self.input_panel.result_number_label,
+            self.input_panel.result_extension_label,
+            self.convert_button,
+        ]
+
+    def disable_elements(self):
+        # Snapshots current states for each widget, then disables
+        self._prev_states = {w: w.cget("state") for w in self._iter_togglables()}
+        for w in self._iter_togglables():
+            w.config(state="disabled")
+
+    def restore_elements(self):
+        # Restores each widget's previous state
+        for w, st in getattr(self, "_prev_states", {}).items():
+            w.config(state=st)
+            
     def convert_command(self):
-        self.toggle_elements("disabled")
+        self.disable_elements()
 
         # Parses input values
         input_values = self.input_panel.get_values()
-        self.name = str(input_values['name']) if input_values['name'] else self.default_name
-        self.start = int(input_values['number']) if input_values['number'] else self.default_start
-        self.space = bool(input_values['presume_space'])
-        self.dimension = str(input_values['dimension']).lower()
-        self.extension = str(input_values['extension']).upper()[1:]
 
-        # Sets values
-        self.my_name = f"{self.name} " if self.space else self.name
-        self.i = self.start
-        self.num_digits = len(input_values['number'])
+        self.name = str(input_values['name']) if input_values['name'] else self.default_name
+        self.number = int(input_values['number']) if input_values['number'] else self.default_number
+        self.extension = str(input_values['extension']).upper()[1:] if input_values['extension'] else self.default_extension
+        self.presume_space = bool(input_values['presume_space']) if not input_values.get('presume_space', None) else self.default_presume_space
+        self.rename_only = bool(input_values['rename_only']) if not input_values.get('rename_only', None) else self.default_rename_only
+        self.dimension = str(input_values['dimension']).lower() if input_values['dimension'] else self.default_dimension
+        self.filter_dupes = bool(input_values['filter_dupes']) if not input_values.get('filter_dupes', None) else self.default_filter_dupes
+        self.tolerance = float(input_values['tolerance']) if not input_values.get('tolerance', None) else self.default_tolerance
+        
+        self.num_digits = len(input_values['number']) if input_values['number'] else self.default_num_digits
 
         # Runs the command
-        self.run(bool(input_values['rename_only']))
+        self.run()
     
-    def toggle_elements(self, state):
-        self.input_panel.name_entry.config(state=state)
-        self.input_panel.number_entry.config(state=state)
-        self.input_panel.space_checkbutton.config(state=state)
-        self.convert_button.config(state=state)
-    
-    def run(self, rename_only=False):
+    def ensure_dirs(self):
+        """Verifies that the input, output, and dupes directories exist or creates them if necessary."""
         # Creates input directory
-        input_path = self.input_path
-        if not input_path.exists():
-            input_path.mkdir(parents=True)
+        if not self.input_path.exists():
+            self.input_path.mkdir(parents=True)
             self.root.update()
-            self.toggle_elements("normal")
-            return print(f"Creating a folder named '{input_path.name}'.\nPlease move unsorted images into the '{input_path.name}' directory.")
+            self.restore_elements()
+            return print(f"Creating a folder named '{self.input_path.name}'.\nPlease move unsorted images into the '{self.input_path.name}' directory.")
         
-        if not rename_only:
-            # Checks if there are any images in the input directory
+        # Ensures that images exist in the input directory
+        if not self.rename_only:
             extensions = {'.png', '.jpg', '.jpeg', '.arw', '.nef', '.webp'}
-            if not any(file.suffix.lower() in extensions for file in input_path.iterdir() if file.is_file()):
+            if not any(file.suffix.lower() in extensions for file in self.input_path.iterdir() if file.is_file()):
                 self.root.update()
-                self.toggle_elements("normal")
-                return print(f"There are no images to sort!\nPlease move unsorted images into the '{input_path.name}' directory.")
+                self.restore_elements()
+                return print(f"There are no images to sort!\nPlease move unsorted images into the '{self.input_path.name}' directory.")
             
             # Gets a list of all the unsorted images
-            unsorted_images = [file.name for file in input_path.iterdir() if file.is_file() and file.suffix.lower() in extensions]
-        else:
-            if not any(item.is_file() for item in input_path.iterdir()):
-                self.root.update()
-                self.toggle_elements("normal")
-                return print(f"There are no images to sort!\nPlease move unsorted images into the '{input_path.name}' directory.")
+            self.unsorted_images = [file.name for file in self.input_path.iterdir() if file.is_file() and file.suffix.lower() in extensions]
             
-            # Technically can rename any file, not just images
-            unsorted_images = [file.name for file in input_path.iterdir() if file.is_file()]
-        
         # Creates output directory
-        output_path = Path('Output')
-        if not output_path.exists():
-            output_path.mkdir(parents=True)
-            print(f"Creating a folder named '{output_path.name}'.")
-
-        # Converts the unsorted images into PNG
-        sorted_images = sorted(unsorted_images, key = self.dimension_sort_key) if self.dimension != 'none' else sorted(unsorted_images, key = self.natural_sort_key)
-        for filename in sorted_images:
-            if not rename_only:
-                new_name = f"{self.my_name}{self.i:0{self.num_digits}d}.{self.extension.lower()}"
-                src = os.path.join(input_path, filename)
-                dst = os.path.join(output_path, new_name)
-                if Path(src).suffix.lower() in {'.arw', '.nef'}: # Accounts for Sony RAW format
-                    self.convert_raw_to_png(src, dst)
-                else: # All other native image formats
-                    img = Image.open(src)
-                    img = ImageOps.exif_transpose(img) # Auto-rotates based on EXIF
-                    img = img.convert("RGB")
-                    img.save(dst, self.extension)
-                print(f"Converted {filename} to {new_name}")
-            else:
-                new_name = f"{self.my_name}{self.i:0{self.num_digits}d}{Path(filename).suffix}"
-                src = os.path.join(input_path, filename)
-                dst = os.path.join(output_path, new_name)
-                shutil.copy2(src, dst)
-                print(f"Renamed {filename} to {new_name}")
-            self.i += 1
-        print("All done!")
-        self.root.update()
-        self.toggle_elements("normal")
+        if not self.output_path.exists():
+            self.output_path.mkdir(parents=True)
+            print(f"Creating a folder named '{self.output_path.name}'.")
         
-    def convert_raw_to_png(self, src, dst):
-        with rawpy.imread(src) as raw:
-            rgb = raw.postprocess() # Demosaics and converts to RGB
-        imageio.imsave(dst, rgb)
+        # Creates dupes directory
+        if not self.dupes_path.exists():
+            self.dupes_path.mkdir(parents=True)
+            print(f"Creating a folder named '{self.dupes_path.name}'. Duplicate images will be moved here, if filtering out duplicates is selected.")
+    
+    def _convert(self, source_filename: str, target_filename: str):
+        """Helper function to convert one image file format to another."""
+        target_filename = f"{target_filename}{self.number:0{self.num_digits}d}.{self.extension.lower()}"
+        src = os.path.join(self.input_path, source_filename)
+        dst = os.path.join(self.output_path, target_filename)
+        if Path(src).suffix.lower() in {'.arw', '.nef'}: # Accounts for Sony RAW format
+            with rawpy.imread(src) as raw:
+                rgb = raw.postprocess() # Demosaics and converts to RGB
+            imageio.imsave(dst, rgb)
+        else: # All other native image formats
+            img = Image.open(src)
+            img = ImageOps.exif_transpose(img) # Auto-rotates based on EXIF
+            img = img.convert("RGB")
+            img.save(dst, self.extension)
+        print(f"Converted {source_filename} to {target_filename}")
+    
+    def _rename(self, source_filename: str, target_filename: str):
+        """Helper function to rename an image."""
+        target_filename = f"{target_filename}{self.number:0{self.num_digits}d}{Path(source_filename).suffix}"
+        src = os.path.join(self.input_path, source_filename)
+        dst = os.path.join(self.output_path, target_filename)
+        shutil.copy2(src, dst)
+        print(f"Renamed {source_filename} to {target_filename}")
+
+    def run(self):
+        self.debug_values()
+        self.ensure_dirs()
+        my_name = f"{self.name} " if self.presume_space else self.name
+        sorted_images = sorted(self.unsorted_images, key = self.dimension_sort_key) if self.dimension != 'none' else sorted(self.unsorted_images, key = self.natural_sort_key)
+
+        for filename in sorted_images:
+            process_fn = self._rename if self.rename_only else self._convert
+            process_fn(filename, my_name)
+            self.number += 1
+
+        print("All done!\n")
+
+        self.root.update()
+        self.restore_elements()
 
     # Sorting algorithm for numbers (1 to 1, 2 to 2, etc... instead of 1 to 1, 10 to 2, etc)
     def natural_sort_key(self, s: str):
