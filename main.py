@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 import re
 import shutil
+import threading
 import tkinter as tk
 from tkinter import ttk
 from typing import Any, Dict, Optional
@@ -328,8 +329,6 @@ class Main:
             w.config(state=st)
             
     def convert_command(self):
-        self.disable_elements()
-
         # Parses input values
         input_values = self.input_panel.get_values()
 
@@ -345,23 +344,24 @@ class Main:
         self.num_digits = len(input_values['number']) if input_values['number'] else self.default_num_digits
 
         # Runs the command
+        self.disable_elements()
+        threading.Thread(target=self._run_background, daemon=True).start()
+
+    def _run_background(self):
         self.run()
+        self.root.after(0, self.restore_elements)
     
     def ensure_dirs(self):
         """Verifies that the input, output, and dupes directories exist or creates them if necessary."""
         # Creates input directory
         if not self.input_path.exists():
             self.input_path.mkdir(parents=True)
-            self.root.update()
-            self.restore_elements()
             return print(f"Creating a folder named '{self.input_path.name}'.\nPlease move unsorted images into the '{self.input_path.name}' directory.")
         
         # Ensures that images exist in the input directory
         if not self.rename_only:
             extensions = {'.png', '.jpg', '.jpeg', '.arw', '.nef', '.webp'}
             if not any(file.suffix.lower() in extensions for file in self.input_path.iterdir() if file.is_file()):
-                self.root.update()
-                self.restore_elements()
                 return print(f"There are no images to sort!\nPlease move unsorted images into the '{self.input_path.name}' directory.")
             
             # Gets a list of all the unsorted images
@@ -402,7 +402,6 @@ class Main:
         print(f"Renamed {source_filename} to {target_filename}")
 
     def run(self):
-        self.debug_values()
         self.ensure_dirs()
         my_name = f"{self.name} " if self.presume_space else self.name
         sorted_images = sorted(self.unsorted_images, key = self.dimension_sort_key) if self.dimension != 'none' else sorted(self.unsorted_images, key = self.natural_sort_key)
@@ -413,9 +412,6 @@ class Main:
             self.number += 1
 
         print("All done!\n")
-
-        self.root.update()
-        self.restore_elements()
 
     # Sorting algorithm for numbers (1 to 1, 2 to 2, etc... instead of 1 to 1, 10 to 2, etc)
     def natural_sort_key(self, s: str):
