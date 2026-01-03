@@ -335,21 +335,17 @@ class Main:
         self.name = str(input_values['name']) if input_values['name'] else self.default_name
         self.number = int(input_values['number']) if input_values['number'] else self.default_number
         self.extension = str(input_values['extension']).upper()[1:] if input_values['extension'] else self.default_extension
-        self.presume_space = bool(input_values['presume_space']) if not input_values.get('presume_space', None) else self.default_presume_space
-        self.rename_only = bool(input_values['rename_only']) if not input_values.get('rename_only', None) else self.default_rename_only
+        self.presume_space = bool(input_values['presume_space']) if input_values.get('presume_space') is not None else self.default_presume_space
+        self.rename_only = bool(input_values['rename_only']) if input_values.get('rename_only') is not None  else self.default_rename_only
         self.dimension = str(input_values['dimension']).lower() if input_values['dimension'] else self.default_dimension
-        self.filter_dupes = bool(input_values['filter_dupes']) if not input_values.get('filter_dupes', None) else self.default_filter_dupes
-        self.tolerance = float(input_values['tolerance']) if not input_values.get('tolerance', None) else self.default_tolerance
+        self.filter_dupes = bool(input_values['filter_dupes']) if input_values.get('filter_dupes') is not None else self.default_filter_dupes
+        self.tolerance = float(input_values['tolerance']) if input_values.get('tolerance') is not None else self.default_tolerance
         
         self.num_digits = len(input_values['number']) if input_values['number'] else self.default_num_digits
 
         # Runs the command
         self.disable_elements()
-        threading.Thread(target=self._run_background, daemon=True).start()
-
-    def _run_background(self):
-        self.run()
-        self.root.after(0, self.restore_elements)
+        threading.Thread(target=self.run, daemon=True).start()
     
     def ensure_dirs(self):
         """Verifies that the input, output, and dupes directories exist or creates them if necessary."""
@@ -400,11 +396,11 @@ class Main:
         dst = os.path.join(self.output_path, target_filename)
         shutil.copy2(src, dst)
         print(f"Renamed {source_filename} to {target_filename}")
-
+        
     def run(self):
         self.ensure_dirs()
         my_name = f"{self.name} " if self.presume_space else self.name
-        sorted_images = sorted(self.unsorted_images, key = self.dimension_sort_key) if self.dimension != 'none' else sorted(self.unsorted_images, key = self.natural_sort_key)
+        sorted_images = sorted(self.unsorted_images, key=self.dimension_sort_key) if self.dimension != 'none' else sorted(self.unsorted_images, key=self.natural_sort_key)
 
         for filename in sorted_images:
             process_fn = self._rename if self.rename_only else self._convert
@@ -412,6 +408,8 @@ class Main:
             self.number += 1
 
         print("All done!\n")
+
+        self.root.after(0, self.restore_elements)
 
     # Sorting algorithm for numbers (1 to 1, 2 to 2, etc... instead of 1 to 1, 10 to 2, etc)
     def natural_sort_key(self, s: str):

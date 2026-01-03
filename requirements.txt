@@ -1,3 +1,4 @@
+imagehash
 imageio
 Pillow
 rawpy
