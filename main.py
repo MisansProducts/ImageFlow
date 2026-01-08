@@ -1,3 +1,5 @@
+from collections import defaultdict
+import itertools
 import os
 from pathlib import Path
 import re
@@ -7,6 +9,7 @@ import tkinter as tk
 from tkinter import ttk
 from typing import Any, Dict, Optional
 
+import imagehash
 import imageio
 from PIL import Image, ImageOps
 import rawpy
@@ -356,7 +359,8 @@ class Main:
         
         # Ensures that images exist in the input directory
         if not self.rename_only:
-            extensions = {'.png', '.jpg', '.jpeg', '.arw', '.nef', '.webp'}
+            # TO DO: Replace extensions with a try-except to open the image to prevent errors further down the pipeline
+            extensions = {'.png', '.jpg', '.jpeg', '.arw', '.nef', '.webp', '.txt'}
             if not any(file.suffix.lower() in extensions for file in self.input_path.iterdir() if file.is_file()):
                 return print(f"There are no images to sort!\nPlease move unsorted images into the '{self.input_path.name}' directory.")
             
@@ -376,9 +380,9 @@ class Main:
     def _convert(self, source_filename: str, target_filename: str):
         """Helper function to convert one image file format to another."""
         target_filename = f"{target_filename}{self.number:0{self.num_digits}d}.{self.extension.lower()}"
-        src = os.path.join(self.input_path, source_filename)
-        dst = os.path.join(self.output_path, target_filename)
-        if Path(src).suffix.lower() in {'.arw', '.nef'}: # Accounts for Sony RAW format
+        src = Path(os.path.join(self.input_path, source_filename))
+        dst = Path(os.path.join(self.output_path, target_filename))
+        if src.suffix.lower() in {'.arw', '.nef'}: # Accounts for Sony RAW format
             with rawpy.imread(src) as raw:
                 rgb = raw.postprocess() # Demosaics and converts to RGB
             imageio.imsave(dst, rgb)
@@ -392,15 +396,97 @@ class Main:
     def _rename(self, source_filename: str, target_filename: str):
         """Helper function to rename an image."""
         target_filename = f"{target_filename}{self.number:0{self.num_digits}d}{Path(source_filename).suffix}"
-        src = os.path.join(self.input_path, source_filename)
-        dst = os.path.join(self.output_path, target_filename)
+        src = Path(os.path.join(self.input_path, source_filename))
+        dst = Path(os.path.join(self.output_path, target_filename))
         shutil.copy2(src, dst)
         print(f"Renamed {source_filename} to {target_filename}")
+
+    def _filter_dupes(self):
+        if not self.filter_dupes:
+            return
+        
+        # Step 1: hash all images
+        print("Computing image hashes...")
+        hashes = []
+        for filename in self.unsorted_images:
+            src = Path(os.path.join(self.input_path, filename))
+            try:
+                with Image.open(src) as img:
+                    hashes.append((filename, imagehash.dhash(img)))
+            except Exception as e:
+                print(f"\tError hashing {filename}: {e}")
+        print(f"Processed {len(hashes)} images.")
+
+        # Step 2: Union-find setup
+        # Initially, each filename is is a parent of itself and has a rank/height of 0; disjoint sets
+        parent = {filename: filename for filename, _ in hashes}
+        rank = {filename: 0 for filename, _ in hashes}
+
+        def find(x):
+            while parent[x] != x:
+                parent[x] = parent[parent[x]] # path compression
+                x = parent[x]
+            return x
+
+        def union(a, b):
+            ra, rb = find(a), find(b)
+            if ra == rb:
+                return
+            
+            # union by rank
+            if rank[ra] < rank[rb]:
+                ra, rb = rb, ra
+            parent[rb] = ra
+            if rank[ra] == rank[rb]:
+                rank[ra] += 1
+        
+        # Step 3: Build edges by tolerance, union into components
+        for (filename1, hash1), (filename2, hash2) in itertools.combinations(hashes, 2):
+            if hash1 - hash2 <= self.tolerance:
+                union(filename1, filename2)
+        
+        # Step 4: Collect components
+        groups = defaultdict(list)
+        for filename, _, in hashes:
+            groups[find(filename)].append(filename)
+        
+        # Step 5: Choose the best candidate to keep
+        def score(filename):
+            src = Path(os.path.join(self.input_path, filename))
+            try:
+                with Image.open(src) as img:
+                    width, height = img.size
+            except Exception:
+                width, height = 0, 0
+            return (src.stat().st_size, width * height)
+        
+        print("Moving duplicate images...")
+        kept = []
+        for _, files, in groups.items():
+            # A disjoint set by itself; no similar images to this image
+            if len(files) == 1:
+                kept.append(files[0])
+                continue
+            
+            keep = max(files, key=score)
+            kept.append(keep)
+
+            for filename in files:
+                if filename == keep:
+                    continue
+                self.unsorted_images.remove(filename)
+                src = Path(os.path.join(self.input_path, filename))
+                dst = Path(os.path.join(self.dupes_path, filename))
+                shutil.move(src, dst)
+                print(f"\tMoved {src} to {dst}")
+        print(f"Kept {len(kept)} images.")
         
     def run(self):
         self.ensure_dirs()
+        self._filter_dupes()
+
         my_name = f"{self.name} " if self.presume_space else self.name
-        sorted_images = sorted(self.unsorted_images, key=self.dimension_sort_key) if self.dimension != 'none' else sorted(self.unsorted_images, key=self.natural_sort_key)
+        sorted_images = sorted(self.unsorted_images, key=self.dimension_sort_key if self.dimension != 'none' else self.natural_sort_key)
 
         for filename in sorted_images:
             process_fn = self._rename if self.rename_only else self._convert
@@ -418,7 +504,7 @@ class Main:
     
     # Sorting algorithm for dimensions (prioritizes width or height)
     def dimension_sort_key(self, filename: str):
-        src = os.path.join(self.input_path, filename)
+        src = Path(os.path.join(self.input_path, filename))
         with Image.open(src) as img:
             width, height = img.size
             if self.dimension == 'height':
