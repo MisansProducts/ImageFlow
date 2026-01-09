@@ -358,14 +358,13 @@ class Main:
             return print(f"Creating a folder named '{self.input_path.name}'.\nPlease move unsorted images into the '{self.input_path.name}' directory.")
         
         # Ensures that images exist in the input directory
-        if not self.rename_only:
-            # TO DO: Replace extensions with a try-except to open the image to prevent errors further down the pipeline
-            extensions = {'.png', '.jpg', '.jpeg', '.arw', '.nef', '.webp', '.txt'}
-            if not any(file.suffix.lower() in extensions for file in self.input_path.iterdir() if file.is_file()):
-                return print(f"There are no images to sort!\nPlease move unsorted images into the '{self.input_path.name}' directory.")
-            
-            # Gets a list of all the unsorted images
-            self.unsorted_images = [file.name for file in self.input_path.iterdir() if file.is_file() and file.suffix.lower() in extensions]
+        # TO DO: Replace extensions with a try-except to open the image to prevent errors further down the pipeline
+        extensions = {'.png', '.jpg', '.jpeg', '.arw', '.nef', '.webp', '.txt'}
+        if not any(file.suffix.lower() in extensions for file in self.input_path.iterdir() if file.is_file()):
+            return print(f"There are no images to sort!\nPlease move unsorted images into the '{self.input_path.name}' directory.")
+        
+        # Gets a list of all the unsorted images
+        self.unsorted_images = [file.name for file in self.input_path.iterdir() if file.is_file() and file.suffix.lower() in extensions]
             
         # Creates output directory
         if not self.output_path.exists():
