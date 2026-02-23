@@ -251,6 +251,7 @@ class Main:
         self.default_tolerance = 5.0
 
         self.default_num_digits = 1
+        self.default_image_mode = 'RGBA'
 
         # Variables
         self.name = self.default_name
@@ -263,6 +264,7 @@ class Main:
         self.tolerance = self.default_tolerance
 
         self.num_digits = self.default_num_digits
+        self.image_mode = self.default_image_mode
 
     def debug_values(self):
         """Prints the values used in the image conversion along with their types."""
@@ -276,7 +278,8 @@ class Main:
             ('default_dimension', self.default_dimension),
             ('default_filter_dupes', self.default_filter_dupes),
             ('default_tolerance', self.default_tolerance),
-            ('default_num_digits', self.default_num_digits)
+            ('default_num_digits', self.default_num_digits),
+            ('default_image_mode', self.default_image_mode)
         ]
         for var_name, value in defaults:
             print(f"{var_name}: {value} ({type(value).__name__})")
@@ -291,7 +294,8 @@ class Main:
             ('dimension', self.dimension),
             ('filter_dupes', self.filter_dupes),
             ('tolerance', self.tolerance),
-            ('num_digits', self.num_digits)
+            ('num_digits', self.num_digits),
+            ('image_mode', self.image_mode)
         ]
         for var_name, value in values:
             print(f"{var_name}: {value} ({type(value).__name__})")
@@ -345,6 +349,7 @@ class Main:
         self.tolerance = float(input_values['tolerance']) if input_values.get('tolerance') is not None else self.default_tolerance
         
         self.num_digits = len(input_values['number']) if input_values['number'] else self.default_num_digits
+        self.image_mode = 'RGBA' if self.extension == 'PNG' else 'RGB' # TO DO: Refer to https://pillow.readthedocs.io/en/latest/handbook/concepts.html#modes and account for every image mode
 
         # Runs the command
         self.disable_elements()
@@ -385,10 +390,19 @@ class Main:
             with rawpy.imread(src) as raw:
                 rgb = raw.postprocess() # Demosaics and converts to RGB
             imageio.imsave(dst, rgb)
+        elif src.suffix.lower() in {'.png', '.webp'}: # Accounts for images that can have alpha channels
+            img = Image.open(src)
+            img = ImageOps.exif_transpose(img) # Auto-rotates based on EXIF
+            if img.mode.endswith('A') and self.extension != 'PNG': # Removes the alpha channel from the image
+                background = Image.new("RGB", img.size, (255, 255, 255))
+                background.paste(img, mask=img.getchannel('A'))
+                img = background
+            img = img.convert(self.image_mode)
+            img.save(dst, self.extension)
         else: # All other native image formats
             img = Image.open(src)
             img = ImageOps.exif_transpose(img) # Auto-rotates based on EXIF
-            img = img.convert("RGB")
+            img = img.convert(self.image_mode)
             img.save(dst, self.extension)
         print(f"Converted {source_filename} to {target_filename}")
     
